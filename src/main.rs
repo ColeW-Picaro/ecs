@@ -1,8 +1,4 @@
-use std::{
-    any::Any,
-    borrow::BorrowMut,
-    cell::{RefCell, RefMut},
-};
+use std::{any::Any, borrow::BorrowMut, cell::{RefCell, RefMut}, ops::Deref};
 
 use components::*;
 
@@ -24,12 +20,9 @@ fn main() {
     entity_manager.add_component_to_entity(place_and_moving_ent, Position { x: 1, y: 1 });
     entity_manager.add_component_to_entity(place_and_moving_ent, Velocity { vel: 1.0 });
 
-    let pos_store= entity_manager
-        .borrow_component_store::<Position>()
-        .unwrap();
-    let vel_store = entity_manager
-        .borrow_component_store::<Velocity>()
-        .unwrap();
+    let pos_store = entity_manager.borrow_component_store::<Position>().unwrap();
+    let vel_store = entity_manager.borrow_component_store::<Velocity>().unwrap();
+
     let zip = pos_store.iter().zip(vel_store.iter());
     for (pos, vel) in zip.filter_map(|(pos, vel)| Some((pos.as_ref()?, vel.as_ref()?))) {
         println!("Position: x: {}, y: {}", pos.x, pos.y);
@@ -90,6 +83,12 @@ impl EntityManager {
         self.components
             .push(Box::new(RefCell::new(new_component_store)));
     }
+
+    pub fn get_component<T: 'static + Clone>(&self, entity: usize) -> Option<T>{
+        let component_store : RefMut<Vec<Option<T>>> = self.borrow_component_store().unwrap();
+        let clone = component_store[entity].clone();
+        clone
+    }
 }
 
 trait Storage {
@@ -145,7 +144,7 @@ mod tests {
     }
 
     #[test]
-    fn iterate_over_components() {
+    fn get_component_from_entity() {
         let mut entity_manager = EntityManager {
             entity_count: 0,
             components: Vec::new(),
@@ -154,22 +153,8 @@ mod tests {
         let place_ent = entity_manager.add_entity();
         entity_manager.add_component_to_entity(place_ent, Position { x: 1, y: 1 });
 
-        let moving_ent = entity_manager.add_entity();
-        entity_manager.add_component_to_entity(moving_ent, Velocity { vel: 1.0 });
-
-        let zip = entity_manager
-            .borrow_component_store::<Position>()
-            .unwrap()
-            .iter()
-            .zip(
-                entity_manager
-                    .borrow_component_store::<Velocity>()
-                    .unwrap()
-                    .iter(),
-            );
-        for (pos, vel) in zip.filter_map(|(pos, vel)| Some((pos.as_ref()?, vel.as_ref()?))) {
-            println!("Position: x: {}, y: {}", pos.x, pos.y);
-            println!("Velocity: {}", vel.vel);
-        }
+        let component : Position = entity_manager.get_component(place_ent).unwrap();
+        assert_eq!(1, component.x);
+        assert_eq!(1, component.y);
     }
 }
