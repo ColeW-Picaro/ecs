@@ -1,4 +1,4 @@
-use std::{any::Any, borrow::BorrowMut, cell::{RefCell, RefMut}, ops::Deref};
+use std::{any::Any, cell::{RefCell, RefMut}};
 
 use components::*;
 
@@ -85,9 +85,12 @@ impl EntityManager {
     }
 
     pub fn get_component<T: 'static + Clone>(&self, entity: usize) -> Option<T>{
-        let component_store : RefMut<Vec<Option<T>>> = self.borrow_component_store().unwrap();
-        let clone = component_store[entity].clone();
-        clone
+        let component_store : Result<RefMut<Vec<Option<T>>>, ComponentError> =
+            self.borrow_component_store();
+        return match component_store {
+            Ok(store) => store[entity].clone(),
+            Err(_) => None
+        };
     }
 }
 
@@ -111,7 +114,6 @@ impl<T: 'static> Storage for RefCell<Vec<Option<T>>> {
 
 mod tests {
     use super::*;
-    use crate::components::*;
     #[test]
     fn create_entity_manager() {
         let entity_manager = EntityManager {
@@ -157,4 +159,37 @@ mod tests {
         assert_eq!(1, component.x);
         assert_eq!(1, component.y);
     }
+
+    #[test]
+    fn get_component_from_entity_err() {
+        let mut entity_manager = EntityManager {
+            entity_count: 0,
+            components: Vec::new(),
+        };
+
+        let place_ent = entity_manager.add_entity();
+        entity_manager.add_component_to_entity(place_ent, Position { x: 1, y: 1 });
+
+        assert!(entity_manager.get_component::<Velocity>(place_ent).is_none());
+    }
+
+    #[test]
+    fn update_component() {
+        let mut entity_manager = EntityManager {
+            entity_count: 0,
+            components: Vec::new(),
+        };
+
+        let ent = entity_manager.add_entity();
+        let first_pos = Position { x: 1, y: 2 };
+        let second_pos = Position { x: 2, y: 3 };
+
+        entity_manager.add_component_to_entity(ent, first_pos.clone());
+        assert_eq!(first_pos, entity_manager.get_component(ent).unwrap());
+
+        entity_manager.add_component_to_entity(ent, second_pos.clone());
+        assert_eq!(second_pos, entity_manager.get_component(ent).unwrap());
+    }
+
+
 }
