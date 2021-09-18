@@ -113,10 +113,9 @@ impl<T: 'static> Storage for RefCell<Vec<Option<T>>> {
 }
 
 mod tests {
-    use super::*;
     #[test]
     fn create_entity_manager() {
-        let entity_manager = EntityManager {
+        let _ = EntityManager {
             entity_count: 0,
             components: Vec::new(),
         };
