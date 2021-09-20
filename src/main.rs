@@ -1,6 +1,10 @@
-use std::{any::Any, cell::{RefCell, RefMut}};
+use std::{
+    any::Any,
+    cell::{RefCell, RefMut},
+};
 
 use components::*;
+use world_manager::EntityManager;
 
 pub mod components;
 
@@ -30,69 +34,12 @@ fn main() {
     }
 }
 
-pub struct EntityManager {
-    entity_count: usize,
-    components: Vec<Box<dyn Storage>>,
-}
-
 #[derive(Debug)]
 pub struct ComponentError {
     msg: String,
 }
 
-impl EntityManager {
-    fn add_entity(&mut self) -> usize {
-        let entity_id = self.entity_count;
-        for component in self.components.iter_mut() {
-            component.allocate();
-        }
-        self.entity_count += 1;
-        entity_id
-    }
-
-    fn borrow_component_store<T: 'static>(&self) -> Result<RefMut<Vec<Option<T>>>, ComponentError> {
-        for component_vec in self.components.iter() {
-            if let Some(component_vec) = component_vec
-                .as_any()
-                .downcast_ref::<RefCell<Vec<Option<T>>>>()
-            {
-                return Ok(component_vec.borrow_mut());
-            }
-        }
-        Err(ComponentError {
-            msg: String::from("Component does not exist"),
-        })
-    }
-
-    pub fn add_component_to_entity<T: 'static>(&mut self, entity: usize, component: T) {
-        for component_store in self.components.iter_mut() {
-            if let Some(component_store) = component_store
-                .as_any_mut()
-                .downcast_mut::<RefCell<Vec<Option<T>>>>()
-            {
-                component_store.get_mut()[entity] = Some(component);
-                return;
-            }
-        }
-
-        let mut new_component_store = Vec::<Option<T>>::with_capacity(self.entity_count);
-        for _ in 0..self.entity_count {
-            new_component_store.push(None);
-        }
-        new_component_store[entity] = Some(component);
-        self.components
-            .push(Box::new(RefCell::new(new_component_store)));
-    }
-
-    pub fn get_component<T: 'static + Clone>(&self, entity: usize) -> Option<T>{
-        let component_store : Result<RefMut<Vec<Option<T>>>, ComponentError> =
-            self.borrow_component_store();
-        return match component_store {
-            Ok(store) => store[entity].clone(),
-            Err(_) => None
-        };
-    }
-}
+mod world_manager;
 
 trait Storage {
     fn allocate(&mut self);
@@ -113,6 +60,10 @@ impl<T: 'static> Storage for RefCell<Vec<Option<T>>> {
 }
 
 mod tests {
+    use std::{collections::linked_list::Iter, ops::Deref};
+
+    use crate::{components::*, world_manager::EntityManager};
+
     #[test]
     fn create_entity_manager() {
         let _ = EntityManager {
@@ -154,7 +105,7 @@ mod tests {
         let place_ent = entity_manager.add_entity();
         entity_manager.add_component_to_entity(place_ent, Position { x: 1, y: 1 });
 
-        let component : Position = entity_manager.get_component(place_ent).unwrap();
+        let component: Position = entity_manager.get_component(place_ent).unwrap();
         assert_eq!(1, component.x);
         assert_eq!(1, component.y);
     }
@@ -169,7 +120,9 @@ mod tests {
         let place_ent = entity_manager.add_entity();
         entity_manager.add_component_to_entity(place_ent, Position { x: 1, y: 1 });
 
-        assert!(entity_manager.get_component::<Velocity>(place_ent).is_none());
+        assert!(entity_manager
+            .get_component::<Velocity>(place_ent)
+            .is_none());
     }
 
     #[test]
@@ -190,5 +143,30 @@ mod tests {
         assert_eq!(second_pos, entity_manager.get_component(ent).unwrap());
     }
 
+    #[test]
+    fn iter_over_entities_with_components() {
+        let mut entity_manager = EntityManager {
+            entity_count: 0,
+            components: Vec::new(),
+        };
 
+        let ent = entity_manager.add_entity();
+        let ent2 = entity_manager.add_entity();
+        let ent3 = entity_manager.add_entity();
+
+
+        let pos = Position { x: 1, y: 2 };
+        entity_manager.add_component_to_entity(ent, pos.clone());
+        entity_manager.add_component_to_entity(ent2,pos.clone());
+        entity_manager.add_component_to_entity(ent3,pos.clone());
+
+        let vel = Velocity{ vel: 1.1 };
+        entity_manager.add_component_to_entity(ent, vel.clone());
+        entity_manager.add_component_to_entity(ent2,vel.clone());
+        entity_manager.add_component_to_entity(ent3,vel.clone());
+
+        let iter = entity_manager.iter_over_entities_with_components::<Position, Velocity>();
+    }
+
+    
 }
