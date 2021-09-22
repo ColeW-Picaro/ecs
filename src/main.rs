@@ -1,6 +1,6 @@
 use std::{
     any::Any,
-    cell::{RefCell, RefMut},
+    cell::RefCell,
 };
 
 use components::*;
@@ -41,7 +41,7 @@ pub struct ComponentError {
 
 mod world_manager;
 
-trait Storage {
+pub trait Storage {
     fn allocate(&mut self);
     fn as_any(&self) -> &dyn Any;
     fn as_any_mut(&mut self) -> &mut dyn Any;
@@ -60,8 +60,6 @@ impl<T: 'static> Storage for RefCell<Vec<Option<T>>> {
 }
 
 mod tests {
-    use std::{collections::linked_list::Iter, ops::Deref};
-
     use crate::{components::*, world_manager::EntityManager};
 
     #[test]
@@ -144,29 +142,16 @@ mod tests {
     }
 
     #[test]
-    fn iter_over_entities_with_components() {
-        let mut entity_manager = EntityManager {
+    fn remove_component() {
+         let mut entity_manager = EntityManager {
             entity_count: 0,
             components: Vec::new(),
         };
 
         let ent = entity_manager.add_entity();
-        let ent2 = entity_manager.add_entity();
-        let ent3 = entity_manager.add_entity();
-
-
         let pos = Position { x: 1, y: 2 };
         entity_manager.add_component_to_entity(ent, pos.clone());
-        entity_manager.add_component_to_entity(ent2,pos.clone());
-        entity_manager.add_component_to_entity(ent3,pos.clone());
 
-        let vel = Velocity{ vel: 1.1 };
-        entity_manager.add_component_to_entity(ent, vel.clone());
-        entity_manager.add_component_to_entity(ent2,vel.clone());
-        entity_manager.add_component_to_entity(ent3,vel.clone());
-
-        let iter = entity_manager.iter_over_entities_with_components::<Position, Velocity>();
+        entity_manager.remove_component::<Position>(ent).unwrap();
     }
-
-    
 }

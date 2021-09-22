@@ -1,6 +1,7 @@
-use std::{cell::{RefCell, RefMut}, iter::{Copied, FilterMap, Zip}, slice::Iter};
+use std::cell::{RefCell, RefMut};
 
 use crate::{ComponentError, Storage};
+
 pub struct EntityManager {
     pub entity_count: usize,
     pub components: Vec<Box<dyn Storage>>,
@@ -61,13 +62,13 @@ impl EntityManager {
         };
     }
 
-    pub fn iter_over_entities_with_components<T: 'static, U: 'static>(
-        &self
-    ) -> Copied<impl Iterator<Item = (&T, &U)>> {
-        let store1 = self.borrow_component_store::<T>().unwrap();
-        let store2 = self.borrow_component_store::<U>().unwrap();
-        let zip = store1.iter().zip(store2.iter());
-        let copy = zip.filter_map(|(c1, c2)| Some((c1.as_ref()?.clone(), c2.as_ref()?.clone()))).copied();
-        copy
+    pub fn remove_component<T: 'static>(&mut self, entity: usize) -> Result<(), ComponentError> {
+        return match self.borrow_component_store::<T>() {
+            Ok(mut store) => {
+                store[entity] = None;
+                Ok(())
+            }
+            Err(e) => Err(e),
+        };
     }
 }
